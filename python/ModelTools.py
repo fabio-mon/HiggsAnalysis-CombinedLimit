@@ -107,20 +107,31 @@ class ModelBuilder(ModelBuilderBase):
         self.physics = physicsModel
         self.physics.setModelBuilder(self)
     def doModel(self, justCheckPhysicsModel=False):
-        if not justCheckPhysicsModel: self.doObservables()
+        print "I am ModelTools::doModel"
+        if not justCheckPhysicsModel: 
+            print "doing Observables"
+            self.doObservables()
+        print "doing ParametersOfInterest"
         self.physics.doParametersOfInterest()
 
         # set a group attribute on POI variables
         poiIter = self.out.set('POI').createIterator()
         poi = poiIter.Next()
+        print "printing poi"
         while poi:
+            print poi.GetName()
             self.out.var(poi.GetName()).setAttribute('group_POI',True)
             poi = poiIter.Next()
+        print "doing Nuisances"
         self.physics.preProcessNuisances(self.DC.systs)
         self.doNuisances()
+        print "doing ExtArgs"
 	self.doExtArgs()
+        print "doing RateParams"
 	self.doRateParams()
+        print "doing ExpectedEvents"
         self.doExpectedEvents()
+        print "other things"
         if justCheckPhysicsModel:
             self.physics.done()
             print "Model is OK"
@@ -562,6 +573,7 @@ class ModelBuilder(ModelBuilderBase):
         self.doComment(" --- Expected events in each bin, for each process ----")
         for b in self.DC.bins:
             for p in self.DC.exp[b].keys(): # so that we get only self.DC.processes contributing to this bin
+                print "doing ExpectedEvents for bin %s - process %s"%(b,p)
                 # if it's a zero background, write a zero and move on
                 if self.DC.exp[b][p] == 0:
                     self.doVar("n_exp_bin%s_proc_%s[%g]" % (b, p, self.DC.exp[b][p]))

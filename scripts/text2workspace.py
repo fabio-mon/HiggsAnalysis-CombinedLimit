@@ -35,6 +35,7 @@ if options.fileName.endswith(".gz"):
 else:
     file = open(options.fileName, "r")
 
+print "Parse text file"
 ## Parse text file 
 DC = parseCard(file, options)
 
@@ -42,13 +43,17 @@ if options.dumpCard:
     DC.print_structure()
     exit()
 
+print "Load tools to build workspace"
 ## Load tools to build workspace
 MB = None
 if DC.hasShapes:
+    print "loading ShapeBuilder"
     MB = ShapeBuilder(DC, options)
 else:
+    print "loading CountingModelBuilder"
     MB = CountingModelBuilder(DC, options)
 
+print "Load physics model"
 ## Load physics model
 (physModMod, physModName) = options.physModel.split(":")
 __import__(physModMod)
@@ -57,7 +62,10 @@ physics = getattr(mod, physModName)
 if mod     == None: raise RuntimeError, "Physics model module %s not found" % physModMod
 if physics == None or not isinstance(physics, PhysicsModelBase): 
     raise RuntimeError, "Physics model %s in module %s not found, or not inheriting from PhysicsModelBase" % (physModName, physModMod)
+print "setting PhysicsOptions"
 physics.setPhysicsOptions(options.physOpt)
 ## Attach to the tools, and run
+print "setting Physics"
 MB.setPhysics(physics)
+print "doing Model"
 MB.doModel(justCheckPhysicsModel=options.justCheckPhysicsModel)

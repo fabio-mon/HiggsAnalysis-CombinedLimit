@@ -239,7 +239,7 @@ class MultiSignalModel(MultiSignalModelBase, HiggsMassRangeModel):
 ### This base class implements signal yields by production and decay mode
 ### Specific models can be obtained redefining getHiggsSignalYieldScale
 SM_HIGG_DECAYS   = [ "hww", "hzz", "hgg", "htt", "hbb", 'hzg', 'hmm', 'hcc', 'hgluglu' ]
-SM_HIGG_PROD     = [ "ggH", "qqH", "VH", "WH", "ZH", "ttH", "tHq", "tHW", "ggZH", "bbH" ,"WPlusH","WMinusH"]
+SM_HIGG_PROD     = [ "ggH", "qqH", "VH", "WH", "ZH", "ttH", "tHq", "tHW", "ggZH", "bbH" ,"WPlusH","WMinusH","HH"]
 BSM_HIGGS_DECAYS = [ "hinv" ]
 ALL_HIGGS_DECAYS = SM_HIGG_DECAYS + BSM_HIGGS_DECAYS
 ALL_HIGGS_PROD   = SM_HIGG_PROD
@@ -250,9 +250,30 @@ def getHiggsProdDecMode(bin,process,options):
     if "_" in process: 
         (processSource, decaySource) = (process.split("_")[0],process.split("_")[-1]) # ignore anything in the middle for SM-like higgs
         if decaySource not in ALL_HIGGS_DECAYS:
-            print "ERROR", "Validation Error in bin %r: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (bin,process,decaySource,ALL_HIGGS_DECAYS)
-    if processSource not in ALL_HIGGS_PROD :
-        raise RuntimeError, "Validation Error in bin %r, process %r: signal process %s not among the allowed ones." % (bin,process,decaySource)
+            #print "ERROR", "Validation Error in bin %r: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (bin,process,decaySource,ALL_HIGGS_DECAYS)
+            print "WARNING: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (process,decaySource,ALL_HIGGS_DECAYS)
+            print "--->", "Set by default hgg decay"
+            decaySource="hgg"
+###################################################
+#TEMPFIX
+    if (processSource == "hh"):
+        processSource = "HH"
+    if (processSource == "tth"):
+        processSource = "ttH"
+    if (processSource == "ggh"):
+        processSource = "ggH"
+    if (processSource == "qqh"):
+        processSource = "qqH"
+    if (processSource == "vh"):
+        processSource = "VH"
+    if (processSource == "thq"):
+        processSource = "tHq"
+    if (processSource == "thw"):
+        processSource = "tHW"
+###################################################
+    if processSource not in ALL_HIGGS_PROD:
+        raise RuntimeError, "Validation Error in bin %r, process %r: signal process %s not among the allowed ones." % (bin,process,processSource)
+
     #
     foundDecay = None
     for D in ALL_HIGGS_DECAYS:
@@ -275,6 +296,9 @@ def getHiggsProdDecMode(bin,process,options):
         foundEnergy = '13TeV' ## if using 81x, chances are its 13 TeV
         print "Warning: decay string %s does not contain any known energy, assuming %s" % (decaySource, foundEnergy)
     if (processSource=="WPlusH" or processSource=="WMinusH"): processSource = "WH" # treat them the same for now
+    if (processSource=="HH"): 
+        processSource += "_"+bin
+        processSource = processSource.replace("_"+foundEnergy,"")
     return (processSource, foundDecay, foundEnergy)
 
 class SMLikeHiggsModel(PhysicsModel):
@@ -283,6 +307,7 @@ class SMLikeHiggsModel(PhysicsModel):
         pass
     def getYieldScale(self,bin,process):
         "Split in production and decay, and call getHiggsSignalYieldScale; return 1 for backgrounds "
+        print "Hello I am PhysicsModel::SMLikeHiggsModel::getYieldScale"
         if not self.DC.isSignal[process]: return 1
         (processSource, foundDecay, foundEnergy) = getHiggsProdDecMode(bin,process,self.options)
         return self.getHiggsSignalYieldScale(processSource, foundDecay, foundEnergy)

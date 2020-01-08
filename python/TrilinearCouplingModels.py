@@ -2,6 +2,7 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import *
 from HiggsAnalysis.CombinedLimit.SMHiggsBuilder import SMHiggsBuilder
 from HiggsAnalysis.CombinedLimit.LHCHCGModels import LHCHCGBaseModel
 import ROOT, os
+import json
 
 ## Naming conventions
 CMS_to_LHCHCG_Dec = { 
@@ -42,9 +43,13 @@ CMS_to_LHCHCG_Prod = {
 
 class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
     "assume the SM coupling but let the Higgs mass to float"
-    def __init__(self,BRU=True):
+    def __init__(self,BRU=False):
         LHCHCGBaseModel.__init__(self) 
         self.doBRU = BRU
+        datadir = os.environ['CMSSW_BASE']+"/src/HiggsAnalysis/CombinedLimit/data/"
+        with open(datadir+"/trilinearHiggsModel/kl_fit_parameters.json","r") as fit_json: 
+            self.fit_dict = json.load(fit_json)
+        
     def setPhysicsOptions(self,physOptions):
         self.setPhysicsOptionsBase(physOptions)
         for po in physOptions:
@@ -125,13 +130,13 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         self.modelBuilder.factory_('expr::kVkFkl_BRscal_hgg("(@0+@3)*@2/@1", Scaling_hgg, kVkFkl_Gscal_tot, HiggsDecayWidth_UncertaintyScaling_hgg,kl_scalBR_hgg)')
         self.modelBuilder.factory_('expr::kVkFkl_BRscal_hzg("@0*@2/@1", Scaling_hzg, kVkFkl_Gscal_tot, HiggsDecayWidth_UncertaintyScaling_hzg)')
         self.modelBuilder.factory_('expr::kVkFkl_BRscal_hgluglu("(@0+@3)*@2/@1", Scaling_hgluglu, kVkFkl_Gscal_tot, HiggsDecayWidth_UncertaintyScaling_hgluglu, kl_scalBR_hgluglu)')
-	
+
  
     def getHiggsSignalYieldScale(self,production,decay,energy):
-
+        print "Hello i am TrilinearCouplingModels::TrilinearHiggsKappaVKappaF::getHiggsSignalYieldScale"
         name = "kVkFkl_XSBRscal_%s_%s_%s" % (production,decay,energy)
+        print "    doing "+name
         if self.modelBuilder.out.function(name) == None:
-	    
 	    # now make production scaling --> taken from Tab. 2 of https://arxiv.org/pdf/1607.04251v1.pdf, using formula from https://arxiv.org/pdf/1709.08649.pdf (eqn 18)
 	    cXSmap_7   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.06e-2,"ZH":1.23e-2,"ttH":3.87e-2}
 	    cXSmap_8   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.05e-2,"ZH":1.22e-2,"ttH":3.78e-2}
@@ -160,7 +165,17 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
                self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1*@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda,kappa_F)"\
 	       				%(production,energy,C1_map[production],EWK,dZH))
 	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
-            elif production == "bbH": XSscal = ("@0*@0", "kappa_F")
+            elif production == "bbH": 
+                XSscal = ("@0*@0", "kappa_F")
+            elif "HH_" in production: #only for the HH case the production is HH_binname without _13TeV 
+                #Get the bin name
+                binname = production.replace("HH_","")
+                p=[]
+                for ipar in range(0,3):
+                    p.append(self.fit_dict[binname]['p%d'%ipar])
+                self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@0*@0*@1*@1*%g+@0*@1*@1*@1*%g+@1*@1*@1*@1*%g)\",kappa_lambda,kappa_F)"\
+                                           %(production,energy,p[0],p[1],p[2]))
+                XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
             else: raise RuntimeError, "Production %s not supported" % production
             
 	    BRscal = decay
@@ -185,7 +200,9 @@ def getGenProdDecMode(bin,process,options):
 	if "gen" in process: (processSource, decaySource) = process.split("_")[0]+"_"+process.split("_")[1],process.split("_")[-1]
 	else: raise RuntimeError, "Error - must specify a generator bin to match C1 amplitude" 
 	if decaySource not in ALL_HIGGS_DECAYS:
-	    print "ERROR", "Validation Error: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (process,decaySource,ALL_HIGGS_DECAYS)
+	    print "WARNING", "Validation Error: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (process,decaySource,ALL_HIGGS_DECAYS)
+            print "->", "Set by default hgg decay"
+            decaySource="hgg"
 	    #raise RuntimeError, "Validation Error: signal process %s has a postfix %s which is not one recognized higgs decay modes (%s)" % (process,decaySource,ALL_HIGGS_DECAYS)
     if "gen" in processSource:
       if processSource.split("_")[0] not in ALL_HIGGS_PROD: raise RuntimeError, "Validation Error: signal process %s not among the allowed ones." % processSource.split("_")[0]
