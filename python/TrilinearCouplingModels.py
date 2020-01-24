@@ -163,7 +163,7 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
 	       EWK = EWKmap_13[production]
                self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1*@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda,kappa_t)"\
 	       				%(production,energy,C1_map[production],EWK,dZH))
-	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
+	       XSscal = ("(0.+(@0>0)*@0)", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
             elif "HH_" in production: #only for the HH case the production is HH_binname without _13TeV 
                 #Get the bin name
                 binname = production.replace("HH_","")
@@ -172,7 +172,7 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
                     p.append(self.fit_dict[binname]['p%d'%ipar])
                 self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@0*@0*@1*@1*(%g)+@0*@1*@1*@1*(%g)+@1*@1*@1*@1*(%g))\",kappa_lambda,kappa_t)"\
                                            %(production,energy,p[0],p[1],p[2]))
-                XSscal = ("0.+(@0>0)*@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
+                XSscal = ("(0.+(@0>0)*@0)", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
             else: raise RuntimeError, "Production %s not supported" % production
             
 	    BRscal = decay
