@@ -47,7 +47,11 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         LHCHCGBaseModel.__init__(self) 
         self.doBRU = BRU
         datadir = os.environ['CMSSW_BASE']+"/src/HiggsAnalysis/CombinedLimit/data/"
-        with open(datadir+"/trilinearHiggsModel/kl_fit_parameters.json","r") as fit_json: 
+        #with open(datadir+"/trilinearHiggsModel/kl_fit_parameters.json","r") as fit_json: 
+        #with open(datadir+"/trilinearHiggsModel/kl_fit_parameters_FEB2020.json","r") as fit_json: 
+        #with open("/afs/cern.ch/user/f/fmonti/work/NewflashggFinalFit/CMSSW_10_2_13/src/HiggsAnalysis/CombinedLimit/nadya_fitparameters.json","r") as fit_json: 
+        with open(datadir+"/trilinearHiggsModel/kl_fit_parameters_MAR1620_v2.json","r") as fit_json: 
+
             self.fit_dict = json.load(fit_json)
         
     def setPhysicsOptions(self,physOptions):
@@ -108,7 +112,7 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_Z("(1+@2)*@0*@1", SM_BR_hzz, HiggsDecayWidth_UncertaintyScaling_hzz, kl_scalBR_hzz)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_W("(1+@2)*@0*@1", SM_BR_hww, HiggsDecayWidth_UncertaintyScaling_hww, kl_scalBR_hww)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_tau("(1+@4)*@0*@2 + (1+@5)*@1*@3", SM_BR_htt, SM_BR_hmm, HiggsDecayWidth_UncertaintyScaling_htt, HiggsDecayWidth_UncertaintyScaling_hmm,kl_scalBR_htt, kl_scalBR_hmm)')
-        self.modelBuilder.factory_('expr::kVkFkl_Gscal_top("(@0*@0+@3)*@1*@2", kappa_t, SM_BR_hcc, HiggsDecayWidth_UncertaintyScaling_hcc, kl_scalBR_hcc)')
+        self.modelBuilder.factory_('expr::kVkFkl_Gscal_top("(1+@2)*@0*@1", SM_BR_hcc, HiggsDecayWidth_UncertaintyScaling_hcc, kl_scalBR_hcc)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_bottom("(1+@3) * (@0*@2+@1)", SM_BR_hbb, SM_BR_hss, HiggsDecayWidth_UncertaintyScaling_hbb, kl_scalBR_hbb)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_gluon("  (@0+@3)  * @1 * @2", Scaling_hgluglu, SM_BR_hgluglu, HiggsDecayWidth_UncertaintyScaling_hgluglu, kl_scalBR_hgluglu)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_gamma("(@0+@6)*@1*@4 + @2*@3*@5",  Scaling_hgg, SM_BR_hgg, Scaling_hzg, SM_BR_hzg, HiggsDecayWidth_UncertaintyScaling_hgg, HiggsDecayWidth_UncertaintyScaling_hzg, kl_scalBR_hgg)') # no kappa_lambda dependance on H->zg known yet ?
@@ -136,11 +140,12 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         name = "kVkFkl_XSBRscal_%s_%s_%s" % (production,decay,energy)
         print "    doing "+name
         if self.modelBuilder.out.function(name) == None:
+            print "this is a new scaling!-> Building it!"
 	    # now make production scaling --> taken from Tab. 2 of https://arxiv.org/pdf/1607.04251v1.pdf, using formula from https://arxiv.org/pdf/1709.08649.pdf (eqn 18)
-	    cXSmap_7   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.06e-2,"ZH":1.23e-2,"ttH":3.87e-2}
-	    cXSmap_8   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.05e-2,"ZH":1.22e-2,"ttH":3.78e-2}
-	    cXSmap_13  = {"ggH":0.66e-2,"qqH":0.64e-2,"WH":1.03e-2,"ZH":1.19e-2,"ttH":3.51e-2}
-	    EWKmap_13  = {"ggH":1.049,"qqH":0.932,"WH":0.93,"ZH":0.947,"ttH":1.014}
+	    cXSmap_7   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.06e-2,"ZH":1.23e-2,"ttH":3.87e-2,"VH":(0.5*(1.06e-2+1.23e-2))}
+	    cXSmap_8   = {"ggH":0.66e-2,"qqH":0.65e-2,"WH":1.05e-2,"ZH":1.22e-2,"ttH":3.78e-2,"VH":(0.5*(1.05e-2+1.22e-2))}
+	    cXSmap_13  = {"ggH":0.66e-2,"qqH":0.64e-2,"WH":1.03e-2,"ZH":1.19e-2,"ttH":3.51e-2,"VH":(0.5*(1.03e-2+1.19e-2))}
+	    EWKmap_13  = {"ggH":1.049,"qqH":0.932,"WH":0.93,"ZH":0.947,"ttH":1.014,"VH":(0.5*(0.93+0.947))}
 	    cXSmaps = {"7TeV":cXSmap_7, "8TeV":cXSmap_8, "13TeV":cXSmap_13}
 	    dZH = -1.536e-3
              
@@ -152,10 +157,10 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
                self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda,Scaling_%s_%s)"\
 	       				%(production,energy,C1_map[production],EWK,dZH,production,energy))
 	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
-	    elif production in [ "ZH", "WH"]: 
+	    elif production in [ "ZH", "WH","VH"]: 
 	       C1_map = cXSmaps[energy]
 	       EWK = EWKmap_13[production]
-               Self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda)"\
+               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda)"\
 	       				%(production,energy,C1_map[production],EWK,dZH))
 	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
 	    elif production == "ttH": 
