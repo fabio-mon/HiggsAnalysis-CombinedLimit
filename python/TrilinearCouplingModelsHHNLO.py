@@ -1,58 +1,19 @@
 from HiggsAnalysis.CombinedLimit.PhysicsModel import *
 from HiggsAnalysis.CombinedLimit.SMHiggsBuilder import SMHiggsBuilder
 from HiggsAnalysis.CombinedLimit.LHCHCGModels import LHCHCGBaseModel
+from HiggsAnalysis.CombinedLimit.HHScaler import *
 import ROOT, os
-import json
-
-## Naming conventions
-CMS_to_LHCHCG_Dec = { 
-    'hww': 'WW',
-    'hzz': 'ZZ',
-    'hgg': 'gamgam',
-    'hbb': 'bb',
-    'hcc': 'cc',
-    'htt': 'tautau',
-    'hmm': 'mumu',
-    'hzg': 'Zgam',
-    'hgluglu': 'gluglu',
-    'hinv': 'inv',
-}
-CMS_to_LHCHCG_DecSimple = { 
-    'hww': 'WW',
-    'hzz': 'ZZ',
-    'hgg': 'gamgam',
-    'hbb': 'bb',
-    'hcc': 'bb',
-    'htt': 'tautau',
-    'hmm': 'tautau',
-    'hzg': 'gamgam',
-    'hgluglu': 'bb',
-    'hinv': 'inv',
-}
-CMS_to_LHCHCG_Prod = { 
-    'ggH': 'ggF',
-    'qqH': 'VBF',
-    'WH': 'WH',
-    'ZH': 'qqZH',
-    'ggZH': 'ggZH',
-    'ttH': 'ttH',
-    'tHq': 'tHjb',
-    'tHW': 'WtH',
-    'bbH': 'bbH',
- } 
 
 class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
     "assume the SM coupling but let the Higgs mass to float"
     def __init__(self,BRU=True):
         LHCHCGBaseModel.__init__(self) 
         self.doBRU = BRU
-        datadir = os.environ['CMSSW_BASE']+"/src/HiggsAnalysis/CombinedLimit/data/"
-        #with open(datadir+"/trilinearHiggsModel/kl_fit_parameters.json","r") as fit_json: 
-        #with open(datadir+"/trilinearHiggsModel/kl_fit_parameters_FEB2020.json","r") as fit_json: 
-        #with open("/afs/cern.ch/user/f/fmonti/work/NewflashggFinalFit/CMSSW_10_2_13/src/HiggsAnalysis/CombinedLimit/nadya_fitparameters.json","r") as fit_json: 
-        with open(datadir+"/trilinearHiggsModel/kl_fit_parameters_MAR1620_v2.json","r") as fit_json: 
-
-            self.fit_dict = json.load(fit_json)
+        self.HHscaler = HHScaler(
+            #modelBuilder=self.modelBuilder, 
+            #DC=self.DC, 
+            ggf_sample_list=GGF_sample_list, 
+            vbf_sample_list=VBF_sample_list) #exploit external model to retrieve the scaling for the HH NLO samples     
         
     def setPhysicsOptions(self,physOptions):
         self.setPhysicsOptionsBase(physOptions)
@@ -62,18 +23,27 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         print "BR uncertainties in partial widths: %s " % self.doBRU
     def doParametersOfInterest(self):
         """Create POI out of signal strength and MH"""
-        self.modelBuilder.doVar("kappa_t[1,-2.0,2.0]")
-        self.modelBuilder.doVar("kappa_lambda[1,-20,20]")
-        pois = 'kappa_t,kappa_lambda'
+
+        self.modelBuilder.doVar("CV[1,-10,10]")
+        self.modelBuilder.doVar("C2V[1,-10,10]")
+        self.modelBuilder.doVar("kt[1,-2.0,2.0]")
+        self.modelBuilder.doVar("kl[1,-20,20]")
+
+        POIs = "CV,C2V,kl,kt"
         self.doMH()
-        self.modelBuilder.doSet("POI",pois)
         self.SMH = SMHiggsBuilder(self.modelBuilder)
+        self.modelBuilder.doSet("POI",POIs)
+
+        self.modelBuilder.out.var("CV")     .setConstant(True)
+        self.modelBuilder.out.var("C2V")    .setConstant(True)
         self.setup()
 
     def setup(self):
         
 	#self.dobbH()
         # SM BR
+
+        self.HHscaler.create_scalings(self.modelBuilder)
 
         for d in SM_HIGG_DECAYS + [ "hss" ]:
             self.SMH.makeBR(d)
@@ -91,13 +61,13 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
 
         # get VBF, tHq, tHW, ggZH cross section and resolved loops
         self.SMH.makeScaling('qqH', CW='1', CZ='1')
-        self.SMH.makeScaling("tHq", CW='1', Ctop="kappa_t")
-        self.SMH.makeScaling("tHW", CW='1', Ctop="kappa_t")
-        self.SMH.makeScaling("ggZH",CZ='1', Ctop="kappa_t",Cb="1")
-        self.SMH.makeScaling('ggH', Cb='1', Ctop="kappa_t", Cc="1")
-        self.SMH.makeScaling('hgluglu', Cb='1', Ctop="kappa_t")
-        self.SMH.makeScaling('hgg', Cb='1', Ctop="kappa_t", CW='1', Ctau='1')
-        self.SMH.makeScaling('hzg', Cb='1', Ctop="kappa_t", CW='1', Ctau='1')
+        self.SMH.makeScaling("tHq", CW='1', Ctop="kt")
+        self.SMH.makeScaling("tHW", CW='1', Ctop="kt")
+        self.SMH.makeScaling("ggZH",CZ='1', Ctop="kt",Cb="1")
+        self.SMH.makeScaling('ggH', Cb='1', Ctop="kt", Cc="1")
+        self.SMH.makeScaling('hgluglu', Cb='1', Ctop="kt")
+        self.SMH.makeScaling('hgg', Cb='1', Ctop="kt", CW='1', Ctau='1')
+        self.SMH.makeScaling('hzg', Cb='1', Ctop="kt", CW='1', Ctau='1')
 
 
 	cGammap = {"hgg":0.49e-2,"hzz":0.83e-2,"hww":0.73e-2,"hgluglu":0.66e-2,"htt":0,"hbb":0,"hcc":0,"hmm":0}
@@ -106,7 +76,7 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
 	# probably a better way to code this since the partial width expressions are being repeated when we write the BR 
         for dec in cGammap.keys(): 
 	   valC1 = cGammap[dec]
-	   self.modelBuilder.factory_('expr::kl_scalBR_%s("(@0-1)*%g",kappa_lambda)' % (dec,valC1))
+	   self.modelBuilder.factory_('expr::kl_scalBR_%s("(@0-1)*%g",kl)' % (dec,valC1))
 
 	# next make the partial widths, also including the kappas -> we want to include the term from the normal kappas and the one from the self-coupling 
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_Z("(1+@2)*@0*@1", SM_BR_hzz, HiggsDecayWidth_UncertaintyScaling_hzz, kl_scalBR_hzz)')
@@ -115,7 +85,7 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_top("(1+@2)*@0*@1", SM_BR_hcc, HiggsDecayWidth_UncertaintyScaling_hcc, kl_scalBR_hcc)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_bottom("(1+@3) * (@0*@2+@1)", SM_BR_hbb, SM_BR_hss, HiggsDecayWidth_UncertaintyScaling_hbb, kl_scalBR_hbb)')
         self.modelBuilder.factory_('expr::kVkFkl_Gscal_gluon("  (@0+@3)  * @1 * @2", Scaling_hgluglu, SM_BR_hgluglu, HiggsDecayWidth_UncertaintyScaling_hgluglu, kl_scalBR_hgluglu)')
-        self.modelBuilder.factory_('expr::kVkFkl_Gscal_gamma("(@0+@6)*@1*@4 + @2*@3*@5",  Scaling_hgg, SM_BR_hgg, Scaling_hzg, SM_BR_hzg, HiggsDecayWidth_UncertaintyScaling_hgg, HiggsDecayWidth_UncertaintyScaling_hzg, kl_scalBR_hgg)') # no kappa_lambda dependance on H->zg known yet ?
+        self.modelBuilder.factory_('expr::kVkFkl_Gscal_gamma("(@0+@6)*@1*@4 + @2*@3*@5",  Scaling_hgg, SM_BR_hgg, Scaling_hzg, SM_BR_hzg, HiggsDecayWidth_UncertaintyScaling_hgg, HiggsDecayWidth_UncertaintyScaling_hzg, kl_scalBR_hgg)') # no kl dependance on H->zg known yet ?
         # fix to have all BRs add up to unity
         self.modelBuilder.factory_("sum::kVkFkl_SMBRs(%s)" %  (",".join("SM_BR_"+X for X in "hzz hww htt hmm hcc hbb hss hgluglu hgg hzg".split())))
         self.modelBuilder.out.function("kVkFkl_SMBRs").Print("")        
@@ -154,38 +124,37 @@ class TrilinearHiggsKappaVKappaF(LHCHCGBaseModel):
 	    elif production in [ "ggH", "qqH" ]:
 	       C1_map = cXSmaps[energy]
 	       EWK = EWKmap_13[production]
-               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda,Scaling_%s_%s)"\
+               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kl,Scaling_%s_%s)"\
 	       				%(production,energy,C1_map[production],EWK,dZH,production,energy))
 	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
 	    elif production in [ "ZH", "WH","VH"]: 
 	       C1_map = cXSmaps[energy]
 	       EWK = EWKmap_13[production]
-               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda)"\
+               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kl)"\
 	       				%(production,energy,C1_map[production],EWK,dZH))
 	       XSscal = ("@0", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
 	    elif production == "ttH": 
 	       C1_map = cXSmaps[energy]
 	       EWK = EWKmap_13[production]
-               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1*@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kappa_lambda,kappa_t)"\
+               self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@1*@1+(@0-1)*%g/%g)/((1-(@0*@0-1)*%g))\",kl,kt)"\
 	       				%(production,energy,C1_map[production],EWK,dZH))
 	       XSscal = ("(0.+(@0>0)*@0)", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
-            elif "HH_" in production: #only for the HH case the production is HH_binname without _13TeV 
-                #Get the bin name
-                binname = production.replace("HH_","")
-                p=[]
-                for ipar in range(0,3):
-                    p.append(self.fit_dict[binname]['p%d'%ipar])
-                self.modelBuilder.factory_("expr::kVkFkl_XSscal_%s_%s(\"(@0*@0*@1*@1*(%g)+@0*@1*@1*@1*(%g)+@1*@1*@1*@1*(%g))\",kappa_lambda,kappa_t)"\
-                                           %(production,energy,p[0],p[1],p[2]))
-                XSscal = ("(0.+(@0>0)*@0)", "kVkFkl_XSscal_%s_%s, " % (production,energy) )
+            elif "ggHH_" in production:
+                print "hello I am the ggHH scaler!"
+                print "doing process "+production
+                scaling = self.HHscaler.getYieldScale(production)
+                print "scaling = ",scaling
+                XSscal = ("@0", scaling)
+                #XSscal = ("1+@0*0", scaling)
+                
             else: raise RuntimeError, "Production %s not supported" % production
             
 	    BRscal = decay
             if decay == "hss": BRscal = "hbb"
             if not self.modelBuilder.out.function("kVkFkl_BRscal_"+BRscal):
                 raise RuntimeError, "Decay mode %s not supported" % decay
-
-            if "HH" in production:
+            
+            if False:#"HH" in production:
                 self.modelBuilder.factory_('expr::%s("%s*@1*@2", %s, kVkFkl_BRscal_hgg,kVkFkl_BRscal_hbb)' % (name, XSscal[0], XSscal[1]))
             else:
                 self.modelBuilder.factory_('expr::%s("%s*@1", %s, kVkFkl_BRscal_%s)' % (name, XSscal[0], XSscal[1],BRscal))

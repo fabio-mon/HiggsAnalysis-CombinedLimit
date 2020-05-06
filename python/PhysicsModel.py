@@ -239,7 +239,7 @@ class MultiSignalModel(MultiSignalModelBase, HiggsMassRangeModel):
 ### This base class implements signal yields by production and decay mode
 ### Specific models can be obtained redefining getHiggsSignalYieldScale
 SM_HIGG_DECAYS   = [ "hww", "hzz", "hgg", "htt", "hbb", 'hzg', 'hmm', 'hcc', 'hgluglu' ]
-SM_HIGG_PROD     = [ "ggH", "qqH", "VH", "WH", "ZH", "ttH", "tHq", "tHW", "ggZH", "bbH" ,"WPlusH","WMinusH","HH"]
+SM_HIGG_PROD     = [ "ggH", "qqH", "VH", "WH", "ZH", "ttH", "tHq", "tHW", "ggZH", "bbH" ,"WPlusH","WMinusH","HH","ggHH"]
 BSM_HIGGS_DECAYS = [ "hinv" ]
 ALL_HIGGS_DECAYS = SM_HIGG_DECAYS + BSM_HIGGS_DECAYS
 ALL_HIGGS_PROD   = SM_HIGG_PROD
@@ -270,9 +270,12 @@ def getHiggsProdDecMode(bin,process,options):
         processSource = "tHq"
     if (processSource == "thw"):
         processSource = "tHW"
+    if (processSource == "ggHH"):
+        processSource = processSource+"_kl_"+process.split("_")[2]+"_kt_"+process.split("_")[4]
 ###################################################
-    if processSource not in ALL_HIGGS_PROD:
-        raise RuntimeError, "Validation Error in bin %r, process %r: signal process %s not among the allowed ones." % (bin,process,processSource)
+    if "ggHH" not in processSource:
+        if processSource not in ALL_HIGGS_PROD:
+            raise RuntimeError, "Validation Error in bin %r, process %r: signal process %s not among the allowed ones." % (bin,process,processSource)
 
     #
     foundDecay = None
